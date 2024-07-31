@@ -39,7 +39,7 @@ sudo apt install -y gcc g++ make wget libssl-dev libbz2-dev libffi-dev zlib1g-de
 export CXX=g++
 
 # Create swap file to avoid memory issues
-create_swap
+#create_swap
 
 # Download and extract Python source
 cd /usr/src
