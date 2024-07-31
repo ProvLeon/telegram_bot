@@ -14,14 +14,14 @@ then
 fi
 
 # Function to create swap file
-create_swap() {
-    SWAP_SIZE="2G"
-    sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
-    sudo chmod 600 /swapfile
-    sudo mkswap /swapfile
-    sudo swapon /swapfile
-    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-}
+#create_swap() {
+#    SWAP_SIZE="2G"
+#    sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+#    sudo chmod 600 /swapfile
+#    sudo mkswap /swapfile
+#    sudo swapon /swapfile
+#    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+#}
 
 # Function to clear the apt cache
 clear_cache() {
@@ -50,6 +50,10 @@ sudo tar xzf Python-$PYTHON_VERSION.tgz
 cd Python-$PYTHON_VERSION
 sudo ./configure --enable-optimizations
 sudo make -j2 altinstall  # Limit to 2 concurrent jobs
+
+# Create symlinks if they don't exist
+sudo ln -sf /usr/local/bin/python3.11 /usr/bin/python3.11
+sudo ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3.11
 
 # Verify the installation
 python3.11 --version
