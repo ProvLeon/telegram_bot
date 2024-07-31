@@ -54,7 +54,7 @@ async def cmd_help(msg: types.Message) -> None:
 async def cmd_start(msg: types.Message) -> None:
     logging.info(f"Received /start command from user {msg.from_user.id}")
     response = await get_ai_response("Hello! I'm a new user.")
-    await msg.bot.send_message(chat_id=msg.chat.id, text=response, parse_mode=ParseMode.HTML)
+    await msg.bot.send_message(chat_id=msg.chat.id, text=response, parse_mode=ParseMode.MARKDOWN)
     logging.info(f"Sent AI-generated greeting to user {msg.from_user.id}")
 
 @user_router.message(Command('subscribe'))
