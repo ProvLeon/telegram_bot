@@ -3,13 +3,30 @@
 # Variables
 PYTHON_VERSION="3.11.2"
 PYTHON_DOWNLOAD_URL="https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz"
-
-MAKE_VERSION="4.3"          # Choose your desired Make version
+MAKE_VERSION="4.3"
 MAKE_DOWNLOAD_URL="https://ftp.gnu.org/gnu/make/make-$MAKE_VERSION.tar.gz"
 
-# Install dependencies required for building Make (if not already present)
-sudo apt-get update  # Update package list
-sudo apt-get install -y build-essential  # Install essential build tools
+# GCC Variables
+GCC_VERSION="12.2.0"
+GCC_DOWNLOAD_URL="https://ftp.gnu.org/gnu/gcc/gcc-$GCC_VERSION/gcc-$GCC_VERSION.tar.gz"
+
+# Download and extract GCC (add this section)
+echo "Downloading GCC $GCC_VERSION..."
+curl -L -O "$GCC_DOWNLOAD_URL"
+tar -xf "gcc-$GCC_VERSION.tar.gz"
+cd "gcc-$GCC_VERSION"
+
+# Build and install GCC
+./contrib/download_prerequisites
+mkdir build
+cd build
+../configure --disable-multilib
+make -j$(nproc)  # May take a while
+sudo make install
+cd ../../  # Go back up to the script's main directory
+
+# Export GCC to PATH
+export PATH=$PATH:/usr/local/bin
 
 # Download and extract Make
 echo "Downloading Make $MAKE_VERSION..."
