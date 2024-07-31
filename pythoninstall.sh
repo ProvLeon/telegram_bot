@@ -16,6 +16,12 @@ curl -L -O "$GCC_DOWNLOAD_URL"
 tar -xf "gcc-$GCC_VERSION.tar.gz"
 cd "gcc-$GCC_VERSION"
 
+export PATH="$PATH:/usr/local/bin"
+export CC=gcc
+export CXX=g++
+export CC=/usr/local/bin/gcc
+export CXX=/usr/local/bin/g++
+
 # Build and install GCC
 ./contrib/download_prerequisites
 mkdir build
