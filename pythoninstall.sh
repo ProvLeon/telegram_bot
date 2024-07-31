@@ -13,21 +13,34 @@ then
     exit 1
 fi
 
+# Function to create swap file
+create_swap() {
+    SWAP_SIZE="2G"
+    sudo fallocate -l $SWAP_SIZE /swapfile
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+}
+
 # Install required dependencies
 sudo yum install -y gcc gcc-c++ openssl-devel bzip2-devel libffi-devel zlib-devel wget make
 
 # Set the CXX environment variable
 export CXX=g++
 
+# Create swap file to avoid memory issues
+create_swap
+
 # Download and extract Python source
 cd /usr/src
 sudo wget https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz
 sudo tar xzf Python-$PYTHON_VERSION.tgz
 
-# Compile and install Python
+# Compile and install Python with limited jobs to reduce memory usage
 cd Python-$PYTHON_VERSION
 sudo ./configure --enable-optimizations
-sudo make altinstall
+sudo make -j2 altinstall  # Limit to 2 concurrent jobs
 
 # Verify the installation
 python3.11 --version
