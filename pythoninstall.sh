@@ -25,8 +25,14 @@ make -j$(nproc)  # May take a while
 sudo make install
 cd ../../  # Go back up to the script's main directory
 
+pip install cmake==3.23.1   # Example: Install CMake 3.23.1
+
 # Export GCC to PATH
+export CC=/usr/local/bin/gcc
+export CXX=/usr/local/bin/g++
 export PATH=$PATH:/usr/local/bin
+
+
 
 # Download and extract Make
 echo "Downloading Make $MAKE_VERSION..."
