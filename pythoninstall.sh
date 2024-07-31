@@ -14,7 +14,10 @@ then
 fi
 
 # Install required dependencies
-sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget make
+sudo yum install -y gcc gcc-c++ openssl-devel bzip2-devel libffi-devel zlib-devel wget make
+
+# Set the CXX environment variable
+export CXX=g++
 
 # Download and extract Python source
 cd /usr/src
