@@ -3,19 +3,17 @@ import asyncio
 import aiohttp
 from aiogram.filters import Command
 from aiogram import Router, types
-from aiogram.enums import ParseMode
-from module.bot import Bot
+from aiogram.enums import ParseMode, ChatType
 from module.handlers.ai_handler import get_ai_response
-from module.reminders import ReminderScheduler
+#from module.reminders import reminder_scheduler
 from module.user_profiles import UserProfileManager
 from module.gamification import GamificationManager
+from module.database import db
 
 user_router = Router()
-reminder_scheduler = ReminderScheduler(Bot())
 profile_manager = UserProfileManager()
 gamification_manager = GamificationManager()
 
-subscribed_users = set()
 
 async def validate_url(session, url):
     try:
@@ -62,20 +60,22 @@ async def cmd_start(msg: types.Message) -> None:
 @user_router.message(Command('subscribe'))
 async def subscribe_user(msg: types.Message) -> None:
     user_id = msg.from_user.id
-    if user_id in subscribed_users:
-        await msg.reply("You are already subscribed.")
+    if not db.is_subscribed(user_id):
+        db.subscribe(user_id)
+        gamification_manager.add_points(user_id, 10)
+        await msg.reply("You have been subscribed to the coding class updates. You'll now receive class reminders!")
     else:
-        subscribed_users.add(user_id)
-        await msg.reply("You have been subscribed to the coding class updates.")
+        await msg.reply("You are already subscribed.")
 
 @user_router.message(Command('unsubscribe'))
 async def unsubscribe_user(msg: types.Message) -> None:
     user_id = msg.from_user.id
-    if user_id in subscribed_users:
-        subscribed_users.remove(user_id)
-        await msg.reply("You have been unsubscribed from the coding class updates.")
+    if db.is_subscribed(user_id):
+        db.unsubscribe(user_id)
+        await msg.reply("You have been unsubscribed from the coding class updates and reminders.")
     else:
         await msg.reply("You are not subscribed.")
+
 
 @user_router.message(Command('schedule'))
 async def send_schedule(msg: types.Message) -> None:
@@ -141,7 +141,13 @@ async def send_assignment(msg: types.Message) -> None:
 
 @user_router.message(Command('ask'))
 async def handle_question(msg: types.Message) -> None:
-    await msg.reply("You can ask your questions related to the coding topics here.\n\nPlease be specific. Example,\n/ask What is matter?")
+    parts = msg.text.split(maxsplit=1)
+    if len(parts) == 2:
+        question = parts[1]
+        response = await get_ai_response(question)
+        await msg.reply(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    else:
+        await msg.reply("Please provide a question after the /ask command. Example:\n\n/ask What is matter?")
 
 @user_router.message(Command('feedback'))
 async def handle_feedback(msg: types.Message) -> None:
@@ -189,7 +195,8 @@ async def handle_points(msg: types.Message):
     user_id = msg.from_user.id
     points = gamification_manager.get_points(user_id)
     badges = gamification_manager.get_badges(user_id)
-    response = f"You have {points} points and the following badges: {', '.join(badges)}."
+    #level = gamification_manager.get_level(user_id)
+    response = f"You have {points} points. \nYour badges: {', '.join(badges)}."
     await msg.reply(response)
 
 @user_router.message(Command('snippet'))
@@ -210,13 +217,25 @@ async def handle_quiz(msg: types.Message):
 
 @user_router.message()
 async def handle_other_messages(msg: types.Message) -> None:
-    if msg.text.lower().startswith('/ask'):
-        parts = msg.text.split(maxsplit=1)
-        if len(parts) == 2:
-            question = parts[1]
-            response = await get_ai_response(question)
-            await msg.reply(response)
+    if msg.chat.type == ChatType.PRIVATE:
+        if msg.text.lower().startswith('/ask'):
+            await handle_question(msg)
+        elif msg.text.startswith('/'):
+            await msg.reply("This command is not recognized. Type /help for a list of available commands.")
         else:
-            await msg.reply("Please provide a question after the /ask command. Example:\n\n/ask What is matter?")
+            # Handle conversation in private chat
+            response = await get_ai_response(msg.text)
+            await msg.reply(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
     else:
-        await msg.reply("Sorry, I didn't understand that command. Type /help for a list of available commands.")
+        if msg.text.lower().startswith('/ask'):
+            await handle_question(msg)
+        elif msg.text.startswith('/'):
+            await msg.reply("This command is not recognized. Type /help for a list of available commands.")
+        else:
+            await msg.reply("Sorry, I didn't understand that command. Type /help for a list of available commands.")
+
+#async def generate_conversation_response(user_message: str) -> str:
+#    # Implement your conversation logic here
+#    # This could involve natural language processing, intent recognition, etc.
+#    # For now, we'll just echo the user's message
+#    return f"You said: {user_message}"

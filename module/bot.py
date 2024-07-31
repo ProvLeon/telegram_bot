@@ -1,4 +1,4 @@
-from aiogram import Bot
+from aiogram import Bot as AiogramBot
 from dotenv import load_dotenv
 from os import getenv
 from aiogram.enums import ParseMode  # Import ParseMode from the correct module
@@ -15,7 +15,7 @@ if TOKEN_API is None or GEMINI_API_KEY is None:
     raise ValueError("TOKEN_API or GEMINI_API_KEY environment variable is not set")
 
 
-class Bot(Bot):
+class Bot(AiogramBot):
     def __init__(self):
         super().__init__(
             token=TOKEN_API,

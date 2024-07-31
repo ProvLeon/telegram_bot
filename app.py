@@ -5,7 +5,7 @@ from module.bot import Bot
 from module.handlers.user_handler import user_router
 from module.handlers.admin_handler import admin_router
 from aiohttp import ClientConnectorError
-# Set up logging
+
 logging.basicConfig(level=logging.INFO)
 
 async def connect_with_retry(bot):
@@ -18,14 +18,19 @@ async def connect_with_retry(bot):
         except ClientConnectorError as e:
             logging.warning(f"Connection attempt {attempt + 1} failed: {e}")
             if attempt < max_retries - 1:
-                await asyncio.sleep(5)  # Wait 5 seconds before retrying
+                await asyncio.sleep(5)
     raise Exception("Failed to connect to Telegram API after multiple attempts")
 
+async def on_startup(bot: Bot):
+    await bot.delete_webhook()
 
 if __name__ == "__main__":
     bot = Bot()
+    #reminder_scheduler = ReminderScheduler(bot)
     dp = Dispatcher()
+    dp.include_router(admin_router)
     dp.include_router(user_router)
+    dp.startup.register(on_startup)
 
     async def main():
         await connect_with_retry(bot)
@@ -38,6 +43,3 @@ if __name__ == "__main__":
     finally:
         asyncio.run(bot.session.close())
         logging.info("Bot session closed")
-
-
-
