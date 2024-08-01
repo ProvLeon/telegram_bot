@@ -19,6 +19,7 @@ class Database:
                 reminder_time TEXT,
                 class_name TEXT,
                 platform_info TEXT
+                concepts TEXT
             )
         ''')
         self.conn.commit()
@@ -40,8 +41,8 @@ class Database:
         self.cursor.execute('SELECT user_id FROM subscribers WHERE subscribed = ?', (True,))
         return [row[0] for row in self.cursor.fetchall()]
 
-    def add_reminder(self, user_id, reminder_time, class_name, platform_info):
-        self.cursor.execute('INSERT INTO reminders (user_id, reminder_time, class_name, platform_info) VALUES (?,?,?, ?)', (user_id, reminder_time, class_name, platform_info))
+    def add_reminder(self, user_id, reminder_time, class_name, platform_info, concepts):
+        self.cursor.execute('INSERT INTO reminders (user_id, reminder_time, class_name, platform_info, concepts) VALUES (?,?,?,?,?)', (user_id, reminder_time, class_name, platform_info, concepts))
         self.conn.commit()
 
     def get_reminders(self, user_id):

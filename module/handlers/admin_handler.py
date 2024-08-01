@@ -96,13 +96,13 @@ async def set_class_reminder(msg: types.Message):
         command_parts = msg.text.split('"')
         logging.info(f"commands: {command_parts}")
         if len(command_parts) >= 5:
-            time_str, class_name, platform_info = command_parts[1], command_parts[3], command_parts[5]
-            logging.info(f"Setting class reminder for {class_name} at {time_str}")
+            time_str, class_name, platform_info, concepts = command_parts[1], command_parts[3], command_parts[5], command_parts[7]
+            logging.info(f"Setting class reminder for {class_name} at {time_str}, {platform_info}")
             try:
                 reminder_time = parse_custom_date(time_str)
                 if reminder_time.hour == 0 and reminder_time.minute == 0:
                     reminder_time = reminder_time.replace(hour=0, minute=0)  # Set to midnight
-                reminder_scheduler.set_reminder(reminder_time, class_name, platform_info)
+                reminder_scheduler.set_reminder(reminder_time, class_name, platform_info, concepts)
                 await msg.reply(f"Class reminder set for all subscribed users: {class_name} on {reminder_time.strftime('%d %B %Y at %I:%M%p')}")
             except ValueError:
                 await msg.reply("Invalid time format. Please use format like '13th June 2024 at 3:00pm' or '13th June'")
@@ -131,8 +131,11 @@ async def send_all_reminders(msg: types.Message):
             if reminders:
                 header_text = "Upcoming class reminders:\n\n"
                 for reminder in reminders:
+                    time = reminder['time']
+                    class_name = reminder['class_name']
+                    platform_info = reminder['platform_info'] if "platform_info" in reminder and reminder['platform_info'] != "" else ""
                     try:
-                        await reminder_scheduler.send_reminder(user_id, reminder['time'], reminder['class_name'], header_text=header_text)
+                        await reminder_scheduler.send_reminder(user_id, time, class_name, header_text=header_text, platform_info=platform_info)
                         sent_count += 1
                         header_text = None  # Only send header for the first reminder
                     except Exception as _:
