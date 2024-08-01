@@ -33,8 +33,9 @@ clear_cache() {
 sudo apt update
 
 # Install required dependencies
-sudo apt install -y gcc g++ make wget libssl-dev libbz2-dev libffi-dev zlib1g-dev
+sudo apt install -y sqlite3 libsqlite3-dev gcc g++ make wget libssl-dev libbz2-dev libffi-dev zlib1g-dev
 
+sudo apt install python3 python3-dev python3-venv
 # Set the CXX environment variable
 export CXX=g++
 
