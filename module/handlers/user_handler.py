@@ -4,7 +4,7 @@ import aiohttp
 from aiogram.filters import Command
 from aiogram import Router, types
 from aiogram.enums import ParseMode, ChatType
-from module.handlers.ai_handler import get_ai_response
+from module.handlers.ai_handler import get_ai_response, handle_topic_conversation
 #from module.reminders import reminder_scheduler
 from module.user_profiles import UserProfileManager
 from module.gamification import GamificationManager
@@ -214,9 +214,9 @@ async def handle_quiz(msg: types.Message):
     options = ["Hello, World!", "Error", "None"]
     correct_option_id = 0
     await msg.bot.send_poll(chat_id=msg.chat.id, question=question, options=options, type='quiz', correct_option_id=correct_option_id)
-
 @user_router.message()
 async def handle_other_messages(msg: types.Message) -> None:
+    current_topic = db.get_discussions()
     if msg.chat.type == ChatType.PRIVATE:
         if msg.text.lower().startswith('/ask'):
             await handle_question(msg)
@@ -226,13 +226,16 @@ async def handle_other_messages(msg: types.Message) -> None:
             # Handle conversation in private chat
             response = await get_ai_response(msg.text)
             await msg.reply(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    elif current_topic:
+        logging.info(f"Received message in topic {current_topic['topic']}")
+        await handle_topic_conversation(msg)
     else:
         if msg.text.lower().startswith('/ask'):
             await handle_question(msg)
         elif msg.text.startswith('/'):
             await msg.reply("This command is not recognized. Type /help for a list of available commands.")
-        else:
-            await msg.reply("Sorry, I didn't understand that command. Type /help for a list of available commands.")
+        #else:
+        #    await msg.reply("Sorry, I didn't understand that command. Type /help for a list of available commands.")
 
 #async def generate_conversation_response(user_message: str) -> str:
 #    # Implement your conversation logic here

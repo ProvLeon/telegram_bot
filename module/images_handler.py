@@ -1,7 +1,7 @@
 import random
 import json
 
-def get_image_url_for_class(class_name):
+def get_image_url_for_class(word_to_match):
     # Define mappings between class names and image categories
     class_to_category = {
         'AI': 'ai_images',
@@ -14,7 +14,7 @@ def get_image_url_for_class(class_name):
     }
 
     # Determine the category based on the class name
-    category = next((cat for key, cat in class_to_category.items() if key.lower() in class_name.lower()), 'coding_images')
+    category = next((cat for key, cat in class_to_category.items() if key.lower() in word_to_match.lower()), 'coding_images')
 
     # Load the appropriate JSON file
     with open(f'assets/images/{category}.json', 'r') as f:

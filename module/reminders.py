@@ -6,6 +6,8 @@ from aiogram.enums import ParseMode
 from module.database import db
 from module.images_handler import get_image_url_for_class
 from aiogram.types import URLInputFile
+import logging
+import random
 
 #import re
 
@@ -16,8 +18,10 @@ class ReminderScheduler:
 
     def get_user_reminders(self, user_id):
         if user_id in db.get_all_subscribers():
-            self.reminders[user_id] = db.get_reminders(user_id)
-            return self.reminders[user_id]
+            reminders = db.get_reminders(user_id)
+            self.reminders[user_id] = reminders
+            logging.info(f"Reminders for user {user_id}: {reminders}")
+            return reminders
         return []
 
 
@@ -36,21 +40,35 @@ class ReminderScheduler:
             This is a {reminder_type} reminder.
             Remember to state the class name using a definite article (e.g. the or a).
             Make the post attractive and engaging with interesting content and emojis.
+            also make sure you bolden the class name and time.
+            make the post professional and apealing to the target audience.
+            format your response in a markdown format making it beautiful.
+            remember to use only one asteriks(*) to wrap a text like this *bold_text* to bolden it
             """
-            response = await get_ai_response(prompt)
+            #response = await get_ai_response(prompt)
             if header_text:
                 response = f"{header_text}\n\n"
-            #response += await get_ai_response(prompt)
+            response += await get_ai_response(prompt)
             reminder_history.append(response)
 
             try:
                 photo = URLInputFile(image_url)
-                caption = response.strip()
+                chat_member = await self.bot.get_chat_member(user_id, user_id=user_id)
+                user = chat_member.user
 
-                await self.bot.send_photo(user_id, photo, caption=caption, parse_mode=ParseMode.MARKDOWN)
+                greetings = ["Hey", "Hello", "Hi", "Greetings", "Good day", "Howdy"]
+                greeting = random.choice(greetings)
+
+                username = "@" + user.username or user.first_name
+                personalized_response = f"{greeting}, *{username}!! 👋\n\n{response.strip()}*"
+
+                await self.bot.send_photo(user_id, photo, caption=personalized_response, parse_mode=ParseMode.MARKDOWN)
+                return {"caption": personalized_response, "photo": photo}
             except Exception as e:
                 print(f"Error sending image: {e}")
-                await self.bot.send_message(user_id, response, parse_mode=ParseMode.MARKDOWN)
+                await self.bot.send_message(user_id, personalized_response, parse_mode=ParseMode.MARKDOWN)
+                return {"caption": personalized_response, "photo": None}
+        return {"caption": "", "photo": None}
 
     def set_reminder(self, reminder_time, class_name, platform_info, concepts=None):
         for user_id in db.get_all_subscribers():

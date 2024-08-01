@@ -1,10 +1,12 @@
 from aiogram.filters import Command
 from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+#from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram.enums import ParseMode
 from module.reminders import reminder_scheduler
 from module.handlers.user_handler import handle_other_messages
 from datetime import datetime
+import asyncio
 import logging
 from module.database import db
 import re
@@ -64,6 +66,41 @@ async def is_admin(msg: types.Message):
     logging.info(f"Admin IDs: {admin_ids} {msg.from_user.id}")
     return msg.from_user.id in admin_ids
 
+async def has_user_interacted(bot, user_id):
+    try:
+        await bot.send_chat_action(chat_id=user_id, action="typing")
+        return True
+    except Exception:
+        return False
+
+
+async def handle_non_admin_commands(msg: types.Message):
+    chat_id = msg.chat.id
+    user_id = msg.from_user.id
+    chat_member = await msg.bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+    user = chat_member.user
+    username = user.username or user.first_name
+    isInteractive = await has_user_interacted(msg.bot, user_id)
+    await msg.delete()
+    try:
+
+        if isInteractive:
+            # User has interacted before, send private message
+            await msg.bot.send_message(chat_id=user_id, text="This command is only available to administrators.")
+        else:
+            # User hasn't interacted, send to channel and delete after 1 minute
+            logging.info("Sending non-admin command to channel")
+            channel_msg = await msg.bot.send_message(
+                chat_id=chat_id,
+                text=f"@{username}, You don't have permission to use this command\.\n\n_*Please contact an administrator*_",
+                parse_mode=ParseMode.MARKDOWN_V2
+            )
+            #logging.info(channel_msg)
+            await asyncio.sleep(15)
+            await channel_msg.delete()
+    except Exception as e:
+        logging.error(f"Error handling non-admin command: {e}")
+
 @admin_router.message(Command(commands=['ban']))
 async def ban_user(msg: types.Message):
     if await is_admin(msg):
@@ -75,7 +112,7 @@ async def ban_user(msg: types.Message):
         else:
             await msg.reply("Usage: /ban <user_id>")
     else:
-        await msg.reply("You don't have permission to use this command.")
+        await handle_non_admin_commands(msg)
 
 @admin_router.message(Command(commands=['delete']))
 async def delete_message(msg: types.Message):
@@ -88,7 +125,7 @@ async def delete_message(msg: types.Message):
         else:
             await msg.reply("Usage: /delete <message_id>")
     else:
-        await msg.reply("You don't have permission to use this command.")
+        await handle_non_admin_commands(msg)
 
 @admin_router.message(Command('setclassreminder'))
 async def set_class_reminder(msg: types.Message):
@@ -109,7 +146,7 @@ async def set_class_reminder(msg: types.Message):
         else:
             await msg.reply('Usage: /setclassreminder "date [and time]" "class name" "platform info"')
     else:
-        await msg.reply("This command is only available to administrators.")
+        await handle_non_admin_commands(msg)
 
 @admin_router.message(Command(commands=['*']))
 async def handle_unknown_admin_command(msg: types.Message):
@@ -122,6 +159,13 @@ async def handle_unknown_admin_command(msg: types.Message):
 @admin_router.message(Command('sendallreminders'))
 async def send_all_reminders(msg: types.Message):
     if await is_admin(msg):
+        response = None
+        # Send confirmation to admin privately
+        await msg.bot.send_message(chat_id=msg.from_user.id, text="Processing reminders...")
+
+        # Delete the admin's command message
+        await msg.delete()
+
         sent_count = 0
         subscribers = db.get_all_subscribers()
         for user_id in subscribers:
@@ -129,21 +173,35 @@ async def send_all_reminders(msg: types.Message):
             reminders = reminder_scheduler.get_user_reminders(user_id)
             logging.info(f"reminders: {reminders}")
             if reminders:
-                header_text = "Upcoming class reminders:\n\n"
+                header_text = "*Upcoming Class: *\n\n"
                 for reminder in reminders:
-                    time = reminder['time']
-                    class_name = reminder['class_name']
-                    platform_info = reminder['platform_info'] if "platform_info" in reminder and reminder['platform_info'] != "" else ""
-                    try:
-                        await reminder_scheduler.send_reminder(user_id, time, class_name, header_text=header_text, platform_info=platform_info)
-                        sent_count += 1
-                        header_text = None  # Only send header for the first reminder
-                    except Exception as _:
-                        continue
+                    time = reminder.get('time')
+                    class_name = reminder.get('class_name')
+                    platform_info = reminder.get('platform_info', '')
+                    concepts = reminder.get('concepts', '')
+                    if time and class_name:
+                        try:
+                            logging.info(f"Sending the following {class_name} {time} {platform_info} {concepts} to user {user_id}")
+                            response = await reminder_scheduler.send_reminder(user_id, time, class_name, platform_info=platform_info, concepts=concepts)
+                            sent_count += 1
+                        except Exception as e:
+                            logging.error(f"Error sending reminder: {e}")
+                            continue
 
-        await msg.reply(f"Reminders sent to {sent_count} subscribed users.")
+        if response and 'caption' in response and 'photo' in response:
+            caption = f"{header_text} {response['caption']}"
+            photo = response['photo']
+            # Send final post to the channel
+            await msg.bot.send_photo(chat_id=msg.chat.id, photo=photo, caption=caption, parse_mode=ParseMode.MARKDOWN)
+        else:
+            await msg.bot.send_message(chat_id=msg.chat.id, text="No reminders were sent.")
+
+        # Send final report to admin privately
+        await msg.bot.send_message(chat_id=msg.from_user.id, text=f"Reminders sent to {sent_count} subscribed users.")
     else:
-        await msg.reply("This command is only available to administrators.")
+        await handle_non_admin_commands(msg)
+
+
 
 
 @admin_router.message(Command('cleardatabase'))
@@ -197,3 +255,27 @@ async def subscriber_info(callback_query: types.CallbackQuery):
     except Exception as e:
         logging.error(f"Error fetching subscriber info: {e}")
         await callback_query.answer("Error fetching subscriber information", show_alert=True)
+
+@admin_router.message(Command('starttopic'))
+async def start_topic_conversation(msg: types.Message):
+    if await is_admin(msg):
+        parts = msg.text.split(maxsplit=1)
+        if len(parts) == 2:
+            await msg.delete()
+            topic = parts[1].capitalize()
+            db.add_discussion(topic)
+            await msg.bot.send_message(chat_id=msg.chat.id, text=f"**Discussion Started💭👥**\n\t➖➖➖➖➖➖➖➖➖➖➖➖\n\n*Topic:* {topic}\n\nFeel free to share your thoughts!🧠📚", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await msg.reply("Usage: /starttopic <topic>")
+    else:
+        await handle_non_admin_commands(msg)
+
+
+@admin_router.message(Command('endtopic'))
+async def end_topic_conversation(msg: types.Message):
+    if await is_admin(msg):
+        await msg.delete()
+        await db.remove_discussion()
+        await msg.reply("Topic conversation ended.")
+    else:
+        await handle_non_admin_commands(msg)
