@@ -13,41 +13,43 @@ then
     exit 1
 fi
 
-# Function to create swap file
-#create_swap() {
-#    SWAP_SIZE="2G"
-#    sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
-#    sudo chmod 600 /swapfile
-#    sudo mkswap /swapfile
-#    sudo swapon /swapfile
-#    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-#}
-
 # Function to clear the apt cache
 clear_cache() {
     sudo apt clean
     sudo rm -rf /var/lib/apt/lists/*
 }
 
-# Update package lists
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Update package lists and install required dependencies
 sudo apt update
+sudo apt install -y sqlite3 libsqlite3-dev gcc g++ make wget libssl-dev libbz2-dev libffi-dev zlib1g-dev libreadline-dev libncurses5-dev libgdbm-dev libnss3-dev liblzma-dev
 
-# Install required dependencies
-sudo apt install -y sqlite3 libsqlite3-dev gcc g++ make wget libssl-dev libbz2-dev libffi-dev zlib1g-dev
+# Install Python 3 and virtual environment packages if not already installed
+if ! command_exists python3; then
+    sudo apt install -y python3
+fi
 
-sudo apt install python3 python3-dev python3-venv
+if ! command_exists python3-dev; then
+    sudo apt install -y python3-dev
+fi
+
+if ! command_exists python3-venv; then
+    sudo apt install -y python3-venv
+fi
+
 # Set the CXX environment variable
 export CXX=g++
-
-# Create swap file to avoid memory issues
-#create_swap
 
 # Download and extract Python source
 cd /usr/src
 sudo wget https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz
 sudo tar xzf Python-$PYTHON_VERSION.tgz
 
-# Compile and install Python with limited jobs to reduce memory usage
+# Compile and install Python
 cd Python-$PYTHON_VERSION
 sudo ./configure --enable-optimizations
 sudo make -j2 altinstall  # Limit to 2 concurrent jobs
@@ -59,9 +61,11 @@ sudo ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3.11
 # Verify the installation
 python3.11 --version
 
-# Install pip
-curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-sudo python3.11 get-pip.py
+# Install pip using the official script if not already installed
+if ! command_exists pip3.11; then
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    sudo python3.11 get-pip.py
+fi
 
 # Verify pip installation
 pip3.11 --version
@@ -71,10 +75,5 @@ cd /usr/src
 sudo rm -f Python-$PYTHON_VERSION.tgz
 sudo rm -f get-pip.py
 clear_cache
-
-# Disable and remove the swap file
-sudo swapoff /swapfile
-sudo rm -f /swapfile
-sudo sed -i '/\/swapfile/d' /etc/fstab
 
 echo "Python $PYTHON_VERSION and pip have been successfully installed."
