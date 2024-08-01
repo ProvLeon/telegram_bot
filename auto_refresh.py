@@ -1,9 +1,12 @@
 import time
 import subprocess
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import PatternMatchingEventHandler
 
-class ChangeHandler(FileSystemEventHandler):
+class ChangeHandler(PatternMatchingEventHandler):
+    def __init__(self):
+        super().__init__(ignore_patterns=["*/__pycache__/*", "*.pyc", "*.pyo"])
+
     def on_any_event(self, event):
         if event.is_directory:
             return
@@ -15,6 +18,7 @@ def restart_app():
     global process
     if 'process' in globals():
         process.terminate()
+        process.wait()
     process = subprocess.Popen(["python", "app.py"])
 
 if __name__ == "__main__":
@@ -31,4 +35,8 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         observer.stop()
-    observer.join()
+        observer.join()
+    finally:
+        if 'process' in globals():
+            process.terminate()
+            process.wait()
