@@ -5,7 +5,7 @@ from watchdog.events import PatternMatchingEventHandler
 
 class ChangeHandler(PatternMatchingEventHandler):
     def __init__(self):
-        super().__init__(ignore_patterns=["*/__pycache__/*", "*.pyc", "*.pyo"])
+        super().__init__(ignore_patterns=["*/__pycache__/*", "*.pyc", "*.pyo", "*.db-journal"])
 
     def on_any_event(self, event):
         if event.is_directory:
