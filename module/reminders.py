@@ -16,13 +16,13 @@ class ReminderScheduler:
         self.bot = Bot()
         self.reminders = {}
 
-    def get_user_reminders(self, user_id):
-        if user_id in db.get_all_subscribers():
-            reminders = db.get_reminders(user_id)
-            self.reminders[user_id] = reminders
-            logging.info(f"Reminders for user {user_id}: {reminders}")
-            return reminders
-        return []
+    def get_all_reminders(self):
+        #if user_id in db.get_all_subscribers():
+        reminders = db.get_reminders()
+        #self.reminders[user_id] = reminders
+        logging.info(f"Reminders: {reminders}")
+        return reminders
+        #return []
 
 
     async def send_reminder(self, user_id, reminder_time, class_name, concepts=None, reminder_type="class", header_text=None, platform_info=None):
@@ -71,12 +71,12 @@ class ReminderScheduler:
         return {"caption": "", "photo": None}
 
     def set_reminder(self, reminder_time, class_name, platform_info, concepts=None):
-        for user_id in db.get_all_subscribers():
-            #if user_id not in self.reminders:
+        #    #if user_id not in self.reminders:
             #    self.reminders[user_id] = [{"time": reminder_time, "class_name": class_name}]
             #else:
-            db.add_reminder(user_id, reminder_time, class_name, platform_info, concepts)
-            asyncio.create_task(self._schedule_reminders(user_id, reminder_time, class_name, platform_info, concepts))
+        db.add_reminder(reminder_time, class_name, platform_info, concepts)
+        for user_id in db.get_all_subscribers():
+            asyncio.create_task(self._schedule_reminders( user_id, reminder_time, class_name, platform_info, concepts))
 
     async def _schedule_reminders(self, user_id, reminder_time, class_name, platform_info, concepts):
         now = datetime.now()

@@ -18,7 +18,6 @@ class Database:
         ''')
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS reminders (
-                user_id INTEGER,
                 reminder_time TEXT,
                 class_name TEXT,
                 platform_info TEXT
@@ -67,14 +66,14 @@ class Database:
         self.cursor.execute('SELECT user_id FROM subscribers WHERE subscribed = ?', (True,))
         return [row[0] for row in self.cursor.fetchall()]
 
-    def add_reminder(self, user_id, reminder_time, class_name, platform_info, concepts):
-        self.cursor.execute('INSERT INTO reminders (user_id, reminder_time, class_name, platform_info, concepts) VALUES (?,?,?,?,?)',
-                            (user_id, reminder_time, class_name, platform_info, concepts))
+    def add_reminder(self, reminder_time, class_name, platform_info, concepts):
+        self.cursor.execute('INSERT INTO reminders (reminder_time, class_name, platform_info, concepts) VALUES (?,?,?,?)',
+                            (reminder_time, class_name, platform_info, concepts))
         self.conn.commit()
 
 
-    def get_reminders(self, user_id):
-        self.cursor.execute('SELECT reminder_time, class_name, platform_info, concepts FROM reminders WHERE user_id = ?', (user_id,))
+    def get_reminders(self):
+        self.cursor.execute('SELECT reminder_time, class_name, platform_info, concepts FROM reminders')
         return [{'time': row[0],
                  'class_name': row[1],
                  'platform_info': row[2] if len(row) > 2 else None,

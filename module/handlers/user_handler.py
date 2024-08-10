@@ -9,6 +9,7 @@ from module.handlers.ai_handler import get_ai_response, handle_topic_conversatio
 from module.user_profiles import UserProfileManager
 from module.gamification import GamificationManager
 from module.database import db
+from datetime import datetime
 
 user_router = Router()
 profile_manager = UserProfileManager()
@@ -27,6 +28,19 @@ def escape_markdown_v2(text):
     escape_chars = r"_~`>#+-=|{}.!"
     return ''.join(['\\' + char if char in escape_chars else char for char in text])
 
+def check_chat_type(chat_type) -> str:
+    #chat_type = msg.chat.type
+    if chat_type == ChatType.PRIVATE:
+        #await msg.answer("This command can only be used in groups.")
+        return "private"
+    elif chat_type == ChatType.GROUP:
+        return "group"
+    elif chat_type == ChatType.SUPERGROUP:
+        return "supergroup"
+    elif chat_type == ChatType.CHANNEL:
+        return "channel"
+    else:
+        return "unknown"
 
 @user_router.message(Command('help'))
 async def cmd_help(msg: types.Message) -> None:
@@ -52,6 +66,9 @@ async def cmd_help(msg: types.Message) -> None:
 
 @user_router.message(Command('start'))
 async def cmd_start(msg: types.Message) -> None:
+    if check_chat_type(msg.chat.type) == "private":
+        await msg.answer("This command can only be used in groups.")
+        return
     logging.info(f"Received /start command from user {msg.from_user.id}")
     response = await get_ai_response("Hello! I'm a new user.")
     await msg.bot.send_message(chat_id=msg.chat.id, text=response, parse_mode=ParseMode.MARKDOWN)
@@ -60,6 +77,9 @@ async def cmd_start(msg: types.Message) -> None:
 @user_router.message(Command('subscribe'))
 async def subscribe_user(msg: types.Message) -> None:
     user_id = msg.from_user.id
+    if check_chat_type(msg.chat.type) == "private":
+        await msg.reply("This command can only be used in groups.")
+        return
     if not db.is_subscribed(user_id):
         db.subscribe(user_id)
         gamification_manager.add_points(user_id, 10)
@@ -69,6 +89,9 @@ async def subscribe_user(msg: types.Message) -> None:
 
 @user_router.message(Command('unsubscribe'))
 async def unsubscribe_user(msg: types.Message) -> None:
+    if check_chat_type(msg.chat.type) == "private":
+        await msg.reply("This command can only be used in groups.")
+        return
     user_id = msg.from_user.id
     if db.is_subscribed(user_id):
         db.unsubscribe(user_id)
@@ -79,9 +102,42 @@ async def unsubscribe_user(msg: types.Message) -> None:
 
 @user_router.message(Command('schedule'))
 async def send_schedule(msg: types.Message) -> None:
-    schedule_text = "Upcoming classes:\n1. Introduction to Python - July 31\n2. Advanced JavaScript - August 7"
-    await msg.reply(schedule_text)
+    # Fetch upcoming classes from the database
+    upcoming_classes = db.get_reminders()
 
+    if not upcoming_classes:
+        await msg.reply("No upcoming classes scheduled at the moment.")
+        return
+
+    schedule_text = "📅 *Upcoming Classes:*\n\n"
+    for index, class_info in enumerate(upcoming_classes, start=1):
+        class_name = class_info['class_name']
+        class_time = datetime.strptime(class_info['time'], "%Y-%m-%d %H:%M:%S")
+        formatted_time = class_time.strftime("%d %B %Y at %I:%M %p")
+        platform_info = class_info.get('platform_info', 'TBA')
+        concepts = class_info.get('concepts', 'Not specified')
+
+        schedule_text += f"*{index}. {class_name}*\n"
+        schedule_text += f"   📆 Date: {formatted_time}\n"
+        schedule_text += f"   🖥 Platform: {platform_info}\n"
+        schedule_text += f"   📚 Concepts: {concepts}\n\n"
+
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Subscribe to Reminders", callback_data="subscribe_reminders")]
+    ])
+
+    await msg.reply(schedule_text, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard)
+
+@user_router.callback_query(lambda c: c.data == "subscribe_reminders")
+async def handle_subscribe_reminders(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    if not db.is_subscribed(user_id):
+        db.subscribe(user_id)
+        await callback_query.answer("You've been subscribed to class reminders!")
+    else:
+        await callback_query.answer("You're already subscribed to reminders.")
+
+    await callback_query.message.edit_reply_markup(reply_markup=None)
 @user_router.message(Command('materials'))
 async def send_materials(msg: types.Message) -> None:
     parts = msg.text.split(maxsplit=1)

@@ -170,7 +170,7 @@ async def send_all_reminders(msg: types.Message):
         subscribers = db.get_all_subscribers()
         for user_id in subscribers:
             logging.info(f"Sending reminders to user {user_id}")
-            reminders = reminder_scheduler.get_user_reminders(user_id)
+            reminders = reminder_scheduler.get_all_reminders()
             logging.info(f"reminders: {reminders}")
             if reminders:
                 header_text = "*Upcoming Class: *\n\n"
