@@ -5,7 +5,7 @@ from module.handlers.ai_handler import get_ai_response
 from aiogram.enums import ParseMode
 from module.database import db
 from module.images_handler import get_image_url_for_class
-from aiogram.types import URLInputFile
+from aiogram.types import URLInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 import logging
 import random
 
@@ -25,19 +25,24 @@ class ReminderScheduler:
         #return []
 
 
-    async def send_reminder(self, user_id, reminder_time, class_name, concepts=None, reminder_type="class", header_text=None, platform_info=None):
+    async def send_reminder(self, user_id, reminder_time, class_name, concepts=None, reminder_type="class", header_text=None, platform_info=None, url=None):
+
         if db.is_subscribed(user_id):
             reminder_history = []
             response = ""
             if isinstance(reminder_time, str):
                 reminder_time = datetime.strptime(reminder_time, "%Y-%m-%d %H:%M:%S")
             image_url = get_image_url_for_class(class_name)
+            date = datetime.now()
+            dat = date.strftime("%Y-%m-%d %H:%M:%S")
 
             prompt = f"""
             Generate a unique and engaging reminder message with emojis for a {class_name} class at {reminder_time.strftime('%I:%M %p')} on {reminder_time.strftime('%d %B %Y')}.
+            Todays date is {dat}.
             {'the session will be held on ' + platform_info if platform_info else ''}.
             {"concepts to cover" + concepts + "." if concepts else ''}
             This is a {reminder_type} reminder.
+            if todays date {dat} matches the reminder date {reminder_time.strftime('%Y-%m-%d %H:%M:%S')} when mark the session for today.
             Remember to state the class name using a definite article (e.g. the or a).
             Make the post attractive and engaging with interesting content and emojis.
             also make sure you bolden the class name and time.
@@ -62,7 +67,8 @@ class ReminderScheduler:
                 username = "@" + user.username or user.first_name
                 personalized_response = f"{greeting}, *{username}!! 👋\n\n{response.strip()}*"
 
-                await self.bot.send_photo(user_id, photo, caption=personalized_response, parse_mode=ParseMode.MARKDOWN)
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Join Class", url=url)]])
+                await self.bot.send_photo(user_id, photo, caption=personalized_response, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard)
                 return {"caption": personalized_response, "photo": photo}
             except Exception as e:
                 print(f"Error sending image: {e}")

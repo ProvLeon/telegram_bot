@@ -9,6 +9,7 @@ from datetime import datetime
 import asyncio
 import logging
 from module.database import db
+import random
 import re
 
 
@@ -158,6 +159,10 @@ async def handle_unknown_admin_command(msg: types.Message):
 
 @admin_router.message(Command('sendallreminders'))
 async def send_all_reminders(msg: types.Message):
+    #from datetime import datetime, timedelta
+    #URL = await msg.bot.create_chat_invite_link(chat_id=msg.chat.id, name="Class Reminders", expire_date=datetime.now() + timedelta(days=365), member_limit=1000)
+    chat_invite_link = await msg.bot.export_chat_invite_link(chat_id=msg.chat.id)
+
     if await is_admin(msg):
         response = None
         # Send confirmation to admin privately
@@ -177,27 +182,43 @@ async def send_all_reminders(msg: types.Message):
                 for reminder in reminders:
                     time = reminder.get('time')
                     class_name = reminder.get('class_name')
-                    platform_info = reminder.get('platform_info', '')
+                    platform_info = reminder.get('platform_info', f"{chat_invite_link}")
                     concepts = reminder.get('concepts', '')
                     if time and class_name:
                         try:
                             logging.info(f"Sending the following {class_name} {time} {platform_info} {concepts} to user {user_id}")
-                            response = await reminder_scheduler.send_reminder(user_id, time, class_name, platform_info=platform_info, concepts=concepts)
+                            response = await reminder_scheduler.send_reminder(user_id, time, class_name, platform_info=platform_info, concepts=concepts, url=chat_invite_link)
                             sent_count += 1
                         except Exception as e:
                             logging.error(f"Error sending reminder: {e}")
                             continue
 
+        # Add this list at the top of the file
+        replacement_words = ["Guys", "Coders", "TechGeeks", "Learners", "Innovators", "Programmers"]
+
+        # In the send_all_reminders function, modify the caption processing:
         if response and 'caption' in response and 'photo' in response:
-            caption = f"{header_text} {response['caption']}"
+            caption_text = response['caption']
+
+            def replace_mention(match):
+                return random.choice(replacement_words)
+
+            caption = re.sub(r'@\w+', replace_mention, caption_text)
+            caption = f"{header_text} {caption}"
             photo = response['photo']
-            # Send final post to the channel
-            await msg.bot.send_photo(chat_id=msg.chat.id, photo=photo, caption=caption, parse_mode=ParseMode.MARKDOWN)
+
+            # Create an inline keyboard with a button to join the video call
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Join Video Call", url=chat_invite_link)],
+            ])
+
+            await msg.bot.send_photo(chat_id=msg.chat.id, photo=photo, caption=caption, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard)
+
         else:
             await msg.bot.send_message(chat_id=msg.chat.id, text="No reminders were sent.")
 
-        # Send final report to admin privately
-        await msg.bot.send_message(chat_id=msg.from_user.id, text=f"Reminders sent to {sent_count} subscribed users.")
+            # Send final report to admin privately
+            await msg.bot.send_message(chat_id=msg.from_user.id, text=f"Reminders sent to {sent_count} subscribed users.")
     else:
         await handle_non_admin_commands(msg)
 
