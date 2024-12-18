@@ -270,6 +270,8 @@ async def handle_quiz(msg: types.Message):
     options = ["Hello, World!", "Error", "None"]
     correct_option_id = 0
     await msg.bot.send_poll(chat_id=msg.chat.id, question=question, options=options, type='quiz', correct_option_id=correct_option_id)
+
+
 @user_router.message()
 async def handle_other_messages(msg: types.Message) -> None:
     current_topic = db.get_discussions()
